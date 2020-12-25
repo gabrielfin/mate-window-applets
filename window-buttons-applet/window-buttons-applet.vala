@@ -23,17 +23,19 @@ namespace WindowButtonsApplet{
 		protected WindowButton MAXIMIZE = new WindowButton(WindowButtonType.MAXIMIZE);
 
 		protected EnabledButtons enabled_buttons = EnabledButtons();
+		protected int icon_size;
 
 		private Gtk.StyleContext* applet_style_context;
 
 		// Constructor
 
-		public ButtonsApplet(Gtk.Orientation orient, Gtk.StyleContext* applet_style_context){
+		public ButtonsApplet(Gtk.Orientation orient, MatePanel.Applet applet){
 			Object(orientation: orient);
 
 			this.set_homogeneous(true);
 
-			this.applet_style_context = applet_style_context;
+			this.applet_style_context = applet.get_style_context();
+			this.set_size(applet.get_size());
 
 			this.change_layout();
 			this.change_theme();
@@ -41,8 +43,9 @@ namespace WindowButtonsApplet{
 			this.change_behaviour();
 
 			this.marco_gsettings.changed["theme"].connect(this.change_theme);
-			this.gsettings.changed["spacing"].connect(this.change_spacing);
 			this.marco_gsettings.changed["button_layout"].connect(this.change_layout);
+			this.gsettings.changed["spacing"].connect(this.change_spacing);
+			this.gsettings.changed["padding"].connect( (key) => { this.change_size(applet.get_size()); } );
 
 			Wnck.Screen.get_default().active_window_changed.connect(this.reload);
 
@@ -157,38 +160,33 @@ namespace WindowButtonsApplet{
 
 			Gdk.RGBA fg_color = applet_style_context->get_color(Gtk.StateFlags.ACTIVE);
 
-			WindowButtonsTheme theme = new WindowButtonsTheme(theme_name, fg_color);
+			WindowButtonsTheme theme = new WindowButtonsTheme(theme_name, fg_color, this.icon_size, this.get_scale_factor());
 
 			CLOSE.theme = theme;
+			CLOSE.icon_size = this.icon_size;
 			if(enabled_buttons.close)
 				CLOSE.update(true);
 
 			MINIMIZE.theme = theme;
+			MINIMIZE.icon_size = this.icon_size;
 			if(enabled_buttons.minimize)
 				MINIMIZE.update(true);
 
 			MAXIMIZE.theme = theme;
+			MAXIMIZE.icon_size = this.icon_size;
 			if(enabled_buttons.maximize)
 				MAXIMIZE.update(true);
 
 		}
 
-		public void change_size(int size){
+		public void set_size(int size){
 			int padding = gsettings.get_int("padding");
-			size -= padding;
+			this.icon_size = size - padding;
+		}
 
-			CLOSE.icon_size = size;
-			if(this.enabled_buttons.close == true)
-				CLOSE.update();
-
-			MINIMIZE.icon_size = size;
-			if(this.enabled_buttons.minimize == true)
-				MINIMIZE.update();
-
-			MAXIMIZE.icon_size = size;
-			if(this.enabled_buttons.maximize == true)
-				MAXIMIZE.update();
-
+		public void change_size(int size){
+			this.set_size(size);
+			this.change_theme();
 		}
 
 		public void change_orient(int orient){
@@ -271,11 +269,10 @@ namespace WindowButtonsApplet{
 		Gtk.Window settings = builder.get_object("Settings") as Gtk.Window;
 		Gtk.Window about = builder.get_object("About") as Gtk.Window;
 
-		var widget_container = new ButtonsApplet(Gtk.Orientation.HORIZONTAL, applet.get_style_context());
+		var widget_container = new ButtonsApplet(Gtk.Orientation.HORIZONTAL, applet);
 
 		widget_container.show();
 		widget_container.change_orient(applet.get_orient());
-		widget_container.change_size(applet.get_size());
 
 		Gtk.ActionGroup action_group = new Gtk.ActionGroup("action_group");
 
@@ -296,8 +293,6 @@ namespace WindowButtonsApplet{
 
 		widget_container.gsettings.changed["use-marco-layout"].connect(widget_container.change_layout);
 		widget_container.gsettings.changed["buttons-layout"].connect(widget_container.change_layout);
-		widget_container.gsettings.changed["spacing"].connect( (key) => { widget_container.change_size(applet.get_size()); } );
-		widget_container.gsettings.changed["padding"].connect( (key) => { widget_container.change_size(applet.get_size()); } );
 		widget_container.gsettings.changed["behaviour"].connect( () => { widget_container.change_behaviour(); widget_container.reload(); } );
 		applet.setup_menu(menu,action_group);
 
